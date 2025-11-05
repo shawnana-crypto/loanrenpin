@@ -332,7 +332,7 @@ backBtn.addEventListener('click', () => {
 
     const cards = paymentScheduleContainer.querySelectorAll('.payment-card');
     cards.forEach((card, idx) => {
-        card.classList.remove('current','upcoming');
+        card.classList.remove('current','upcoming'); 
         card.classList.add('paid');
         const dateEl = card.querySelector('.text-gray-500.text-sm');
         if(dateEl && !card.querySelector('.text-green-600')) {
