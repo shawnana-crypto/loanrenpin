@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人品借款 - 借款详情</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<style type="text/tailwindcss">
+@layer utilities {
+    .progress-bar {height:6px;background-color:#E5E7EB;border-radius:3px;overflow:hidden;}
+    .progress-value {height:100%;background-color:#3B82F6;border-radius:3px;transition:width 0.5s ease;}
+    .payment-card {transition: transform 0.3s ease, box-shadow 0.3s ease;}
+    .payment-card:hover {transform: translateY(-3px);box-shadow:0 10px 25px -5px rgba(0,0,0,0.1);}
+    .paid {background-color: rgba(16, 185, 129, 0.1);border-color: rgba(16, 185, 129, 0.3);}
+    .current {border-color: #3B82F6;background-color: rgba(59, 130, 246, 0.05);}
+    .upcoming {background-color: rgba(243, 244, 246, 0.5);border-color: #E5E7EB;}
+    .fade-in {animation: fadeIn .25s ease both;}
+    @keyframes fadeIn {from {opacity:0; transform:translateY(6px);} to {opacity:1; transform:translateY(0);}}
+</style>
+</head>
+<body class="bg-gray-50 font-sans text-dark">
+
+<!-- 原借款页面 start -->
+<header class="bg-white shadow-sm sticky top-0 z-10">
+  <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+    <a href="#" class="text-primary font-bold text-xl flex items-center"><i class="fa fa-user-circle mr-2"></i><span>人品借款</span></a>
+    <button class="text-gray-500 hover:text-primary"><i class="fa fa-question-circle text-xl"></i></button>
+  </div>
+</header>
+
+<main class="container mx-auto px-4 py-6" id="loanPage">
+    <!-- 借款概览、还款计划、还款记录同之前保持不变 -->
+    <!-- ...此处省略已存在HTML内容，可直接保留你原来的借款页面HTML... -->
+</main>
+<!-- 原借款页面 end -->
+
+<!-- ✅ 结清确认弹窗 -->
+<div id="settleModal" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-lg p-6 w-80 text-center animate-fade-in">
+    <h3 class="text-lg font-semibold mb-3">确认结清</h3>
+    <p class="text-gray-600 text-sm mb-6">本次将结清剩余金额 <span id="modalAmount" class="font-bold text-primary">¥0.00</span></p>
+    <div class="flex gap-3">
+      <button id="cancelSettle" class="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">取消</button>
+      <button id="confirmSettle" class="flex-1 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition">确认结清</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ 结清成功卡片 -->
+<div id="settleSuccessCard" class="hidden fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md animate-fade-in">
+    <div class="flex justify-center mb-4">
+      <i class="fa fa-check-circle text-5xl text-green-500"></i>
+    </div>
+    <h3 class="text-xl font-bold text-center mb-2">还款完成！</h3>
+    <p class="text-center text-gray-500 text-sm mb-4">您已成功结清该借款</p>
+
+    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-500 text-sm">结清总额</span>
+        <span class="font-bold text-lg" id="successAmount">¥0.00</span>
+      </div>
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-500 text-sm">已节省利息</span>
+        <span class="font-medium text-green-600" id="interestSaved">¥0.00</span>
+      </div>
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-500 text-sm">交易号</span>
+        <span class="font-medium text-gray-700" id="successTx">----</span>
+      </div>
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-500 text-sm">结清时间</span>
+        <span class="font-medium text-gray-700" id="successTime">----</span>
+      </div>
+      <div class="flex justify-between mb-2">
+        <span class="text-gray-500 text-sm">支付方式</span>
+        <span class="font-medium text-gray-700">微信支付</span>
+      </div>
+      <div class="w-full h-2 bg-gray-200 rounded-full mt-3 overflow-hidden">
+        <div class="h-2 bg-green-500 w-full"></div>
+      </div>
+      <p class="text-green-700 text-xs text-center mt-2">还款进度：100%</p>
+    </div>
+
+    <button id="returnLoanPage" class="w-full bg-primary hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors">返回借款详情</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-black text-white text-sm px-4 py-2 rounded-full opacity-0 transition-opacity duration-300 pointer-events-none">操作成功</div>
+
+<script>
+const data = {
+  loanAmount: 8000.00,
+  totalTerms: 12,
+  paidTerms: 3,
+  remainingPrincipal: 6106.25,
+  currentTerm: 4,
+  currentAmount: 757.22,
+  settlementAmount: 5895.48,
+  totalInterestSaved: 200.00, // 假设节省利息
+  scheduleTxs: {1:'WX25090598765432',2:'WX25100512345678',3:'WX25110587654321'}
+};
+
+function formatCurrency(n){ return Number(n).toFixed(2); }
+function nowStr(){ return new Date().toLocaleString(); }
+function genTx(){ return 'WX'+Math.floor(Math.random()*1e12); }
+function showToast(msg,duration=1600){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('opacity-100'); setTimeout(()=>t.classList.remove('opacity-100'),duration); }
+
+const settleNowBtn = document.getElementById('settleNow');
+const settleModal = document.getElementById('settleModal');
+const cancelSettle = document.getElementById('cancelSettle');
+const confirmSettle = document.getElementById('confirmSettle');
+const modalAmount = document.getElementById('modalAmount');
+const settleSuccessCard = document.getElementById('settleSuccessCard');
+const successAmount = document.getElementById('successAmount');
+const interestSaved = document.getElementById('interestSaved');
+const successTx = document.getElementById('successTx');
+const successTime = document.getElementById('successTime');
+const returnLoanPage = document.getElementById('returnLoanPage');
+
+modalAmount.textContent = '¥'+formatCurrency(data.settlementAmount);
+
+settleNowBtn?.addEventListener('click',()=>settleModal.classList.remove('hidden'));
+cancelSettle?.addEventListener('click',()=>settleModal.classList.add('hidden'));
+
+confirmSettle?.addEventListener('click',()=>{
+  confirmSettle.disabled = true;
+  confirmSettle.textContent = '处理中...';
+  showToast('处理结清中...',1200);
+  setTimeout(()=>{
+    // 结清数据
+    data.paidTerms = data.totalTerms;
+    data.remainingPrincipal = 0;
+
+    // 结清成功卡片数据
+    successAmount.textContent = '¥'+formatCurrency(data.settlementAmount);
+    interestSaved.textContent = '¥'+formatCurrency(data.totalInterestSaved);
+    const tx = genTx();
+    successTx.textContent = tx;
+    successTime.textContent = nowStr();
+
+    // 显示结清成功卡片
+    settleSuccessCard.classList.remove('hidden');
+    settleModal.classList.add('hidden');
+
+    // 恢复按钮状态
+    confirmSettle.disabled = false;
+    confirmSettle.textContent = '确认结清';
+    settleNowBtn.disabled = true;
+    settleNowBtn.classList.add('opacity-50','cursor-not-allowed');
+    settleNowBtn.textContent = '已结清';
+  },1500);
+});
+
+returnLoanPage?.addEventListener('click',()=>{
+  settleSuccessCard.classList.add('hidden');
+  showToast('返回借款页面');
+
+  // 更新借款页面：状态、进度、剩余本金、还款计划、还款记录等
+  document.getElementById('loanStatus').textContent='已结清';
+  document.getElementById('loanStatus').className='bg-green-50 text-secondary text-sm font-medium px-3 py-1 rounded-full';
+  document.getElementById('paidInstallments').textContent = data.paidTerms+'期';
+  document.getElementById('progressText').textContent = `${data.paidTerms}/${data.totalTerms}期 (100%)`;
+  document.getElementById('progressBar').style.width='100%';
+  document.getElementById('remainingPrincipal').textContent = '¥0';
+  document.getElementById('currentPaymentSection').style.display='none';
+  document.getElementById('settlementSection')?.style.display='none';
+  document.getElementById('nextPaymentDateContainer')?.style.display='none';
+
+  // 更新还款计划为已还
+  const paymentScheduleContainer = document.getElementById('paymentSchedule');
+  if(paymentScheduleContainer){
+    const cards = paymentScheduleContainer.querySelectorAll('.payment-card');
+    cards.forEach((card,idx)=>{
+      card.classList.remove('current','upcoming'); card.classList.add('paid');
+      const txExists = card.querySelector('.text-green-600');
+      if(!txExists){
+        const dateEl = card.querySelector('.text-gray-500.text-sm');
+        if(dateEl){
+          const p = document.createElement('p');
+          p.className='text-green-600 text-xs mt-1';
+          let termSpan = card.querySelector('.font-medium');
+          let termNum = 1;
+          if(termSpan){
+            let match = termSpan.textContent.match(/第(\d+)期/);
+            if(match) termNum=Number(match[1]);
+          }
+          let tx = data.scheduleTxs[termNum] ? data.scheduleTxs[termNum] : genTx();
+          p.textContent = '一次性结清 | 交易号: '+tx;
+          dateEl.after(p);
+        }
+      }
+    });
+  }
+
+  // 在还款记录顶部添加结清记录
+  const paymentRecords = document.getElementById('paymentRecords');
+  if(paymentRecords){
+    const record = document.createElement('div');
+    record.className='payment-card bg-white rounded-lg border p-4 flex justify-between items-center shadow-sm fade-in';
+    record.innerHTML=`
+      <div>
+        <div class="flex items-center">
+          <span class="font-medium mr-3">一次性结清</span>
+          <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">已完成</span>
+        </div>
+        <p class="text-gray-500 text-sm mt-1">结清时间: ${successTime.textContent}</p>
+        <p class="text-gray-500 text-sm">交易号: ${successTx.textContent}</p>
+      </div>
+      <div class="text-right">
+        <p class="font-bold">¥${formatCurrency(data.settlementAmount)}</p>
+        <p class="text-green-600 text-xs mt-1">微信支付</p>
+      </div>
+    `;
+    paymentRecords.prepend(record);
+  }
+});
+</script>
+</body>
+</html>
